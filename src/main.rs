@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use std::collections::HashMap;
+use std::{collections::HashMap, str::SplitAsciiWhitespace};
 
 use nom::{
     IResult,
@@ -27,9 +27,22 @@ impl<'b> AttackUsedBy<'b> for HashMap::<&'b str, Vec<&'b str>> {
 #[derive(Debug)]
 enum Rarity {
   Common,
+  Uncommon,
+  Rare,
 }
 
-
+#[derive(Debug)]
+enum Fraction {
+  Hexite,
+  Magnamon,
+  Velocitron,
+}
+#[derive(Debug)]
+enum BloodType {
+  Blue,
+  Green,
+  Yellow,
+}
 #[allow(dead_code)]
 #[derive(Debug)]
 struct Virmon<'a>{
@@ -39,6 +52,21 @@ struct Virmon<'a>{
     collector_id: &'a str,
     wave: u8,
     rarity: Rarity,
+    fraction: Fraction,
+    blood_type: BloodType,
+    level: u8,
+    base_speed: u8,
+    base_strength: u8,
+    base_armor: u8,
+    base_health: u8,
+    max_speed: u8,
+    max_strength: u8,
+    max_armor: u8,
+    max_health: u8,
+    buff_formula_speed: Vec<i32>,
+    buff_formula_strength: Vec<i32>,
+    buff_formula_armor: Vec<i32>,
+    buff_formula_health: Vec<i32>,
 }
 impl<'a> Virmon<'a> {
     fn new(
@@ -47,7 +75,22 @@ impl<'a> Virmon<'a> {
       name: &'a str,
       collector_id: &'a str,
       wave: u8,
-      rarity: Rarity
+      rarity: Rarity,
+      fraction: Fraction,
+      blood_type: BloodType,
+      level: u8,
+      base_speed: u8,
+      base_strength: u8,
+      base_armor: u8,
+      base_health: u8,
+      max_speed: u8,
+      max_strength: u8,
+      max_armor: u8,
+      max_health: u8,
+      buff_formula_speed: Vec<i32>,
+      buff_formula_strength: Vec<i32>,
+      buff_formula_armor: Vec<i32>,
+      buff_formula_health: Vec<i32>,
     ) -> Self {
         Virmon{
           asset_type_id, 
@@ -56,7 +99,22 @@ impl<'a> Virmon<'a> {
           collector_id,
           wave,
           rarity,
-        }
+          fraction,
+          blood_type,
+          level,
+          base_speed,
+          base_strength,
+          base_armor,
+          base_health,
+          max_speed,
+          max_strength,
+          max_armor,
+          max_health,
+          buff_formula_speed,
+          buff_formula_strength,
+          buff_formula_armor,
+          buff_formula_health,
+            }
     }
 }
 #[allow(dead_code)]
@@ -126,9 +184,39 @@ fn parse_virmon(input: &str) -> IResult<&str, (Virmon, Vec<&str>)>{
     (input, _) = multispace0(input)?;
     let (mut input, wave) = parse_wave(input)?;
     (input, _) = multispace0(input)?;
-
     let (mut input, rarity) = parse_rarity(input)?;
     (input, _) = multispace0(input)?;
+    let (mut input, fraction) = parse_fraction(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, blood_type) = parse_blood_type(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, level) = parse_level(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, base_speed) = parse_base_speed(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, base_strength) = parse_base_strength(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, base_armor) = parse_base_armor(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, base_health) = parse_base_health(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, max_speed) = parse_max_speed(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, max_strength) = parse_max_strength(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, max_armor) = parse_max_armor(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, max_health) = parse_max_health(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, buff_formula_speed) = parse_buff_formula(input, "speed")?;
+    (input, _) = multispace0(input)?;
+    let (mut input, buff_formula_strength) = parse_buff_formula(input, "strength")?;
+    (input, _) = multispace0(input)?;
+    let (mut input, buff_formula_armor) = parse_buff_formula(input, "speed")?;
+    (input, _) = multispace0(input)?;
+    let (mut input, buff_formula_health) = parse_buff_formula(input, "health")?;
+    (input, _) = multispace0(input)?;
+
 
     let (mut input, attacks) = parse_attacks(input)?;
     (input, _) = multispace0(input)?;
@@ -139,6 +227,23 @@ fn parse_virmon(input: &str) -> IResult<&str, (Virmon, Vec<&str>)>{
       collector_id,
       wave,
       rarity,
+      fraction,
+      blood_type,
+      level,
+      base_speed,
+      base_strength,
+      base_armor,
+      base_health,
+      max_speed,
+      max_strength,
+      max_armor,
+      max_health,
+      buff_formula_speed,
+      buff_formula_strength,
+      buff_formula_armor,
+      buff_formula_health,
+
+
     );
     let (_, tail) = tag("</virmon>")(input)?;
     Ok((tail, (my_virmon, attacks)))
@@ -150,7 +255,7 @@ fn parse_asset_type_id(input: &str) -> IResult<&str, u8>{
         delimited(
             tag("<asset-type-id>"),
             digit1,
-            tag("/<asset-type-id>")
+            tag("</asset-type-id>")
         ),
         |s: &str| s.parse::<u8>()
     )(input)
@@ -190,7 +295,7 @@ fn parse_wave(input: &str) -> IResult<&str, u8>{
       delimited(
           tag("<wave>"),
           digit1,
-          tag("/<wave>")
+          tag("</wave>")
       ),
       |s: &str| s.parse::<u8>()
   )(input)
@@ -199,6 +304,10 @@ fn parse_wave(input: &str) -> IResult<&str, u8>{
 fn parse_a_rarity(input: &str) -> IResult<&str, Rarity>{
   if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("common")(input) {
     return Ok((tail, Rarity::Common));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("uncommon")(input) {
+    return Ok((tail, Rarity::Uncommon));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("rare")(input) {
+    return Ok((tail, Rarity::Rare));
   }
   core::result::Result::Err(nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Tag)))
 }
@@ -210,6 +319,207 @@ fn parse_rarity(input: &str) -> IResult<&str, Rarity>{
       tag("</rarity>")
   )(input)
 }
+
+
+fn parse_a_fraction(input: &str) -> IResult<&str, Fraction>{
+  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("Hexite")(input) {
+    return Ok((tail, Fraction::Hexite));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("Magnamon")(input) {
+    return Ok((tail, Fraction::Magnamon));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("Velocitron")(input) {
+    return Ok((tail, Fraction::Velocitron));
+  }
+  core::result::Result::Err(nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Tag)))
+}
+
+fn parse_fraction(input: &str) -> IResult<&str, Fraction>{
+    delimited(
+      tag("<fraction>"),
+      parse_a_fraction,
+      tag("</fraction>")
+  )(input)
+}
+
+
+
+fn parse_a_blood_type(input: &str) -> IResult<&str, BloodType>{
+  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("blue")(input) {
+    return Ok((tail, BloodType::Blue));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("green")(input) {
+    return Ok((tail, BloodType::Green));
+  }  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("yellow")(input) {
+    return Ok((tail, BloodType::Yellow));
+  }
+  core::result::Result::Err(nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Tag)))
+}
+
+fn parse_blood_type(input: &str) -> IResult<&str, BloodType>{
+    delimited(
+      tag("<blood-type>"),
+      parse_a_blood_type,
+      tag("</blood-type>")
+  )(input)
+}
+
+
+fn parse_level(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<level>"),
+          digit1,
+          tag("</level>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+fn parse_base_speed(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<base-speed>"),
+          digit1,
+          tag("</base-speed>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_base_strength(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<base-strength>"),
+          digit1,
+          tag("</base-strength>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_base_armor(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<base-armor>"),
+          digit1,
+          tag("</base-armor>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_base_health(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<base-health>"),
+          digit1,
+          tag("</base-health>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_max_speed(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<max-speed>"),
+          digit1,
+          tag("</max-speed>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_max_strength(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<max-strength>"),
+          digit1,
+          tag("</max-strength>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_max_armor(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<max-armor>"),
+          digit1,
+          tag("</max-armor>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+fn parse_max_health(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<max-health>"),
+          digit1,
+          tag("</max-health>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+
+
+fn parse_a_buff_formula<'a, 'b,>(input: &'a str, base: &'b str)-> IResult<&'a str, i32> {
+  let mut start_tag =String::from("<buff_formula_");
+  start_tag.push_str(base);
+  start_tag.push_str(">");
+  let start_tag : &str = &start_tag;
+
+  let mut end_tag =String::from("</buff_formula_");
+  end_tag.push_str(base);
+  end_tag.push_str(">");
+  let end_tag : &str = &end_tag;
+
+  let bleep = map_res(
+    delimited(
+        tag(start_tag),
+        digit1,
+        tag(end_tag)
+    ),
+    |s: &str| s.parse::<i32>()
+  )(input);
+  bleep
+}
+
+fn parse_buff_formula<'a, 'b,>(input: &'a str, base: &'b str)-> IResult<&'a str, Vec<i32>> {
+  let mut output = Vec::<i32>::new();
+  let (mut input, first) = parse_a_buff_formula(input, base)?;
+  output.push(first);
+
+  loop {
+      let temp;
+      match multispace0::<_,nom::error::Error<_>>(input) {
+  
+          Ok((tail, _)) => {
+              temp = tail;
+          }
+          _ => {
+              return Ok((input, output));
+          }
+      }
+      match parse_a_buff_formula(temp, base) {
+          Ok((tail, item)) => {
+              input = tail;
+              output.push(item);
+          }
+          _ => {return Ok((input, output));}
+      }
+      
+  }
+  
+}
+
 
 
 fn parse_attacks(input: &str)-> IResult<&str, Vec<&str>> {
