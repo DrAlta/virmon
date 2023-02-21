@@ -24,6 +24,11 @@ impl<'b> AttackUsedBy<'b> for HashMap::<&'b str, Vec<&'b str>> {
   }
 }
 
+#[derive(Debug)]
+enum Rarity {
+  Common,
+}
+
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -31,10 +36,27 @@ struct Virmon<'a>{
     asset_type_id: u8, 
     asset_type_version: u8,
     name: &'a str,
+    collector_id: &'a str,
+    wave: u8,
+    rarity: Rarity,
 }
 impl<'a> Virmon<'a> {
-    fn new(asset_type_id: u8, asset_type_version: u8, name: &'a str) -> Self {
-        Virmon{asset_type_id, asset_type_version, name}
+    fn new(
+      asset_type_id: u8, 
+      asset_type_version: u8, 
+      name: &'a str,
+      collector_id: &'a str,
+      wave: u8,
+      rarity: Rarity
+    ) -> Self {
+        Virmon{
+          asset_type_id, 
+          asset_type_version, 
+          name,
+          collector_id,
+          wave,
+          rarity,
+        }
     }
 }
 #[allow(dead_code)]
@@ -56,7 +78,7 @@ fn main() {
 
 <attack>AttackBar</attack>"#)) ;
 
-
+println!("what does the stuff after this do?");
 
     let unprocessed = "  foo";
 
@@ -96,14 +118,28 @@ fn parse_virmon(input: &str) -> IResult<&str, (Virmon, Vec<&str>)>{
     (input, _) = multispace0(input)?;
     let (mut input, asset_type_id) = parse_asset_type_id(input)?;
     (input, _) = multispace0(input)?;
-    let ( input, asset_type_version) = parse_asset_type_version(input)?;
-
-    let (mut input, name) = parse_name(input)?;
-
+    let (mut input, asset_type_version) = parse_asset_type_version(input)?;
     (input, _) = multispace0(input)?;
+    let (mut input, name) = parse_name(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, collector_id) = parse_collector_id(input)?;
+    (input, _) = multispace0(input)?;
+    let (mut input, wave) = parse_wave(input)?;
+    (input, _) = multispace0(input)?;
+
+    let (mut input, rarity) = parse_rarity(input)?;
+    (input, _) = multispace0(input)?;
+
     let (mut input, attacks) = parse_attacks(input)?;
     (input, _) = multispace0(input)?;
-    let my_virmon = Virmon::new(asset_type_id, asset_type_version, name);
+    let my_virmon = Virmon::new(
+      asset_type_id, 
+      asset_type_version, 
+      name,
+      collector_id,
+      wave,
+      rarity,
+    );
     let (_, tail) = tag("</virmon>")(input)?;
     Ok((tail, (my_virmon, attacks)))
 
@@ -140,13 +176,75 @@ fn parse_name(input: &str) -> IResult<&str, &str>{
     )(input)
 }
 
+fn parse_collector_id(input: &str) -> IResult<&str, &str>{
+  delimited(
+      tag("<collector-id>"),
+      take_till(|c| c == '<'),
+      tag("</collector-id>")
+  )(input)
+}
+
+
+fn parse_wave(input: &str) -> IResult<&str, u8>{
+  map_res(
+      delimited(
+          tag("<wave>"),
+          digit1,
+          tag("/<wave>")
+      ),
+      |s: &str| s.parse::<u8>()
+  )(input)
+}
+
+fn parse_a_rarity(input: &str) -> IResult<&str, Rarity>{
+  if let Ok((tail, _)) = tag::<_, _, nom::error::Error<_>>("common")(input) {
+    return Ok((tail, Rarity::Common));
+  }
+  core::result::Result::Err(nom::Err::Error(nom::error::Error::new("", nom::error::ErrorKind::Tag)))
+}
+
+fn parse_rarity(input: &str) -> IResult<&str, Rarity>{
+    delimited(
+      tag("<rarity>"),
+      parse_a_rarity,
+      tag("</rarity>")
+  )(input)
+}
+
 
 fn parse_attacks(input: &str)-> IResult<&str, Vec<&str>> {
-    separated_list0(
+    let mut output = Vec::<&str>::new();
+    let (mut input, first) = parse_attack(input)?;
+    output.push(first);
+
+    loop {
+        let temp;
+        match multispace0::<_,nom::error::Error<_>>(input) {
+    
+            Ok((tail, _)) => {
+                temp = tail;
+            }
+            _ => {
+                return Ok((input, output));
+            }
+        }
+        match parse_attack(temp) {
+            Ok((tail, item)) => {
+                input = tail;
+                output.push(item);
+            }
+            _ => {return Ok((input, output));}
+        }
+        
+    }
+    
+}
+/*    separated_list0(
         multispace1, 
         parse_attack,
     )(input)
-}
+}*/
+
 
 
 fn parse_attack(input: &str) -> IResult<&str, &str>{
