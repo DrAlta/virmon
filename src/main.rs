@@ -10,6 +10,21 @@ use nom::{
 use nom::combinator::map_res;
 use nom::multi::separated_list0;
 
+trait AttackUsedBy<'c> {
+  fn add_used_by(& mut self, key: &'c str, thingie: &'c str);
+}
+impl<'b> AttackUsedBy<'b> for HashMap::<&'b str, Vec<&'b str>> {
+
+  fn add_used_by(& mut self, key: &'b str, value: &'b str) {
+    if let Some(x) = self.get_mut(&key) {
+      x.push(value);
+    } else {
+      self.insert(key, vec![value]);
+    }
+  }
+}
+
+
 #[allow(dead_code)]
 #[derive(Debug)]
 struct Virmon<'a>{
@@ -47,8 +62,8 @@ fn main() {
 
     let (unprocessed, _) = multispace0::<_, nom::error::Error<_>>(unprocessed).unwrap();
 
-    let mut nanovors = Vec::<Virmon>::new();
-    let mut attack_descs = HashMap::<&str, &str>::new();
+    let nanovors = Vec::<Virmon>::new();
+    let _attack_descs = HashMap::<&str, &str>::new();
     let mut attack_used_by = HashMap::<&str, Vec<&str>>::new();
     loop {
         let Ok((unprocessed, (nanovor, hys_attacks))) = parse_virmon(unprocessed) else {break};
@@ -59,12 +74,8 @@ fn main() {
         }
     println!("{}", unprocessed);
     }
-}
-trait AUB {
-    fn add_used_by(&mut self, attack_id: &str, name: &str);
-}
-impl AUB for HashMap::<&str, Vec<&str>> {
-    fn add_used_by(&mut self, attack_id: &str, name: &str) {
+    if false {
+      println!("{:?}", nanovors);
     }
 }
 
@@ -85,7 +96,7 @@ fn parse_virmon(input: &str) -> IResult<&str, (Virmon, Vec<&str>)>{
     (input, _) = multispace0(input)?;
     let (mut input, asset_type_id) = parse_asset_type_id(input)?;
     (input, _) = multispace0(input)?;
-    let (mut input, asset_type_version) = parse_asset_type_version(input)?;
+    let ( input, asset_type_version) = parse_asset_type_version(input)?;
 
     let (mut input, name) = parse_name(input)?;
 
